@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boarding House Cleaning Schedule</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 70px rgba(0,0,0,0.4);
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 15s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(180deg); }
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .current-week-banner {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 35px;
+            text-align: center;
+            margin: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(245, 87, 108, 0.3);
+            animation: fadeIn 0.8s ease-out 0.3s both;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .current-week-banner h2 {
+            font-size: 1.2em;
+            margin-bottom: 12px;
+            opacity: 0.95;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .current-week-banner .name {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 15px 0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .current-week-banner .week-info {
+            font-size: 1.2em;
+            margin-top: 10px;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 10px;
+            font-size: 1.05em;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .refresh-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .status-indicator {
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.95em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes statusPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
+        }
+        
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 20px 18px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1.05em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 20px 18px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 1em;
+            transition: background 0.3s ease;
+        }
+        
+        tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: scale(1.01);
+        }
+        
+        tbody tr.current-week {
+            background: linear-gradient(90deg, #fff3cd 0%, #fffef7 100%);
+            font-weight: 600;
+            border-left: 5px solid #f5576c;
+            box-shadow: 0 2px 10px rgba(245, 87, 108, 0.15);
+        }
+        
+        tbody tr.current-week td:first-child {
+            color: #f5576c;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .status-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .status-completed::before {
+            content: '✓';
+            font-size: 1.2em;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+        
+        .status-pending::before {
+            content: '⏳';
+        }
+        
+        .week-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 7px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            display: inline-block;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #666;
+            font-size: 0.95em;
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .footer {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 0.95em;
+            border-top: 3px solid #667eea;
+        }
+        
+        .footer p {
+            margin: 8px 0;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .current-week-banner .name {
+                font-size: 2em;
+            }
+            
+            th, td {
+                padding: 14px 10px;
+                font-size: 0.9em;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .refresh-btn, .status-indicator {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧹 Boarding House Cleaning Schedule</h1>
+            <p>Weekly Rotation - Every Tuesday at 8:30 AM</p>
+        </div>
+        
+        <div class="current-week-banner">
+            <h2>This Week's Person in Charge</h2>
+            <div class="name" id="currentCleaner">
+                <span class="loading-spinner"></span>
+            </div>
+            <div class="week-info">
+                Week <span id="currentWeek">-</span> of 5<br>
+                <span id="dateRange" style="font-size: 0.85em; opacity: 0.9; margin-top: 5px; display: inline-block;">Loading dates...</span>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="controls">
+                <button class="refresh-btn" onclick="loadSchedule()">
+                    🔄 Refresh Data
+                </button>
+                <span class="status-indicator status-loading" id="statusIndicator">
+                    <span class="loading-spinner"></span> Connecting...
+                </span>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Friend Name</th>
+                            <th>Week</th>
+                            <th>Date Range</th>
+                            <th>Status</th>
+                            <th>Last Completed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleTable">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px;">
+                                <span class="loading-spinner" style="border-color: #667eea; border-top-color: #764ba2; width: 40px; height: 40px;"></span>
+                                <p style="margin-top: 15px; color: #667eea; font-weight: 600;">Loading schedule from Google Sheets...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="last-updated">
+                📅 Last updated: <strong><span id="lastUpdate">-</span></strong> | 
+                🔄 Auto-refresh: <strong><span id="autoRefreshStatus">Every 30 seconds</span></strong>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>✨ Fully Automated System</strong></p>
+            <p>This page automatically reads data from Google Sheets and updates every 2 minutes.</p>
+            <p>📧 Email reminders are sent via Power Automate every Tuesday at 8:30 AM.</p>
+            <p style="margin-top: 15px;">💡 Update the Google Sheet and changes appear here automatically!</p>
+        </div>
+    </div>
+
+    <script>
+        // Published Google Sheets CSV URL with CORS proxy
+        const SHEET_ID = '2PACX-1vQTcAA8sOXR0wgbX09AFLAHaIMCyM5lrnQ7xRVG2D9zKhFjHadw02JBGDfFp3Q5RcL935JHqU6l7ldA';
+        const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
+        
+        // Use CORS proxy to bypass browser restrictions
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+        const PROXIED_URL = CORS_PROXY + encodeURIComponent(SHEET_CSV_URL);
+
+        // Calculate current week (1-5 rotation)
+        function getCurrentWeek() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), 0, 1);
+            const diff = now - start;
+            const oneWeek = 1000 * 60 * 60 * 24 * 7;
+            const weekNumber = Math.ceil(diff / oneWeek);
+            return ((weekNumber - 1) % 5) + 1;
+        }
+        
+        // Get date range for a specific week number (1-5)
+        function getWeekDateRange(weekNum) {
+            const today = new Date();
+            const currentWeek = getCurrentWeek();
+            const currentDayOfWeek = today.getDay();
+            
+            // Calculate days since last Tuesday
+            let daysSinceTuesday;
+            if (currentDayOfWeek >= 2) {
+                daysSinceTuesday = currentDayOfWeek - 2;
+            } else {
+                daysSinceTuesday = currentDayOfWeek + 5;
+            }
+            
+            // Get the Tuesday of current week
+            const currentTuesday = new Date(today);
+            currentTuesday.setDate(today.getDate() - daysSinceTuesday);
+            
+            // Calculate weeks difference
+            const weeksDiff = weekNum - currentWeek;
+            
+            // Get the Tuesday for the target week
+            const targetTuesday = new Date(currentTuesday);
+            targetTuesday.setDate(currentTuesday.getDate() + (weeksDiff * 7));
+            
+            // Get Monday (6 days after Tuesday)
+            const targetMonday = new Date(targetTuesday);
+            targetMonday.setDate(targetTuesday.getDate() + 6);
+            
+            // Format dates
+            const options = { month: 'short', day: 'numeric' };
+            const tuesdayStr = targetTuesday.toLocaleDateString('en-US', options);
+            const mondayStr = targetMonday.toLocaleDateString('en-US', options);
+            
+            // Add year if different
+            const year = targetTuesday.getFullYear();
+            if (year !== today.getFullYear()) {
+                return `${tuesdayStr}, ${year} - ${mondayStr}, ${year}`;
+            }
+            
+            return `${tuesdayStr} - ${mondayStr}`;
+        }
+
+        // Update connection status indicator
+        function updateStatus(type, message) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = 'status-indicator status-' + type;
+            
+            if (type === 'loading') {
+                indicator.innerHTML = '<span class="loading-spinner"></span> ' + message;
+            } else if (type === 'connected') {
+                indicator.innerHTML = '✓ ' + message;
+            } else {
+                indicator.innerHTML = '⚠️ ' + message;
+            }
+        }
+
+        // Fetch data from Google Sheets using PapaParse with CORS proxy
+        async function fetchSheetData() {
+            updateStatus('loading', 'Loading from Google Sheets...');
+            
+            return new Promise((resolve, reject) => {
+                Papa.parse(PROXIED_URL, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        console.log('Parse results:', results);
+                        
+                        if (results.data && results.data.length > 0) {
+                            // Log the first row to check column names
+                            console.log('First row:', results.data[0]);
+                            
+                            const data = results.data
+                                .filter(row => {
+                                    // Check if row has required fields
+                                    const hasName = row.FriendName || row.friendname || row.FRIENDNAME;
+                                    const hasWeek = row.WeekNumber || row.weeknumber || row.WEEKNUMBER;
+                                    return hasName && hasWeek;
+                                })
+                                .map(row => ({
+                                    name: (row.FriendName || row.friendname || row.FRIENDNAME || '').trim(),
+                                    email: (row.Email || row.email || row.EMAIL || '').trim(),
+                                    week: parseInt(row.WeekNumber || row.weeknumber || row.WEEKNUMBER || '0'),
+                                    lastCompleted: (row.LastCompleted || row.lastcompleted || row.LASTCOMPLETED || '').trim(),
+                                    status: (row.CompletionStatus || row.completionstatus || row.COMPLETIONSTATUS || 'Pending').trim()
+                                }));
+                            
+                            console.log('Processed data:', data);
+                            
+                            if (data.length > 0) {
+                                updateStatus('connected', 'Connected');
+                                resolve(data);
+                            } else {
+                                throw new Error('No valid data rows found');
+                            }
+                        } else {
+                            throw new Error('No data found in sheet');
+                        }
+                    },
+                    error: function(error) {
+                        console.error('Parse error:', error);
+                        updateStatus('error', 'Connection Error');
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+        // Load and display schedule
+        async function loadSchedule() {
+            try {
+                const data = await fetchSheetData();
+                const currentWeek = getCurrentWeek();
+                const currentCleaner = data.find(f => f.week === currentWeek);
+                
+                // Update current cleaner banner
+                document.getElementById('currentCleaner').textContent = currentCleaner ? currentCleaner.name : 'Loading...';
+                document.getElementById('currentWeek').textContent = currentWeek;
+                
+                // Update date range for current week
+                const dateRange = getWeekDateRange(currentWeek);
+                document.getElementById('dateRange').textContent = dateRange;
+                
+                // Populate table
+                const tableBody = document.getElementById('scheduleTable');
+                tableBody.innerHTML = '';
+                
+                data.forEach(friend => {
+                    const row = document.createElement('tr');
+                    
+                    // Highlight current week
+                    if (friend.week === currentWeek) {
+                        row.classList.add('current-week');
+                    }
+                    
+                    // Format status badge
+                    const statusClass = friend.status.toLowerCase().includes('completed') 
+                        ? 'status-completed' 
+                        : 'status-pending';
+                    const statusBadge = `<span class="status-badge ${statusClass}">${friend.status}</span>`;
+                    
+                    // Format last completed date
+                    let lastCompleted = '-';
+                    if (friend.lastCompleted && friend.lastCompleted.trim() !== '') {
+                        try {
+                            const date = new Date(friend.lastCompleted);
+                            if (!isNaN(date.getTime())) {
+                                lastCompleted = date.toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                });
+                            } else {
+                                lastCompleted = friend.lastCompleted;
+                            }
+                        } catch (e) {
+                            lastCompleted = friend.lastCompleted;
+                        }
+                    }
+                    
+                    // Get date range for this person's week
+                    const weekDateRange = getWeekDateRange(friend.week);
+                    
+                    row.innerHTML = `
+                        <td>${friend.name}</td>
+                        <td><span class="week-badge">Week ${friend.week}</span></td>
+                        <td style="color: #666; font-size: 0.9em;">${weekDateRange}</td>
+                        <td>${statusBadge}</td>
+                        <td>${lastCompleted}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Update last update time
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+                
+            } catch (error) {
+                console.error('Failed to load schedule:', error);
+                updateStatus('error', 'Failed to Connect');
+                
+                // Show error in table
+                const tableBody = document.getElementById('scheduleTable');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #721c24;">
+                                <p style="font-size: 1.2em; margin-bottom: 10px;">⚠️ Unable to load data</p>
+                            <p>Please make sure the Google Sheet is published to web as CSV.</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSchedule();
+        });
+        
+        // Auto-refresh every 30 seconds (faster updates!)
+        setInterval(loadSchedule, 30000);
+        
+        // Update auto-refresh countdown
+        let countdown = 30;
+        setInterval(() => {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = 30;
+            }
+            document.getElementById('autoRefreshStatus').textContent = 
+                `Refreshing in ${countdown} seconds`;
+        }, 1000);
+    </script>
+</body>
+</html>
